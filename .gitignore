@@ -1,4 +1,23 @@
-# Ignore Play! working directory #
+.idea
+target/
+*.iml
+
+logs
+.idea_modules
+.vscode
+RUNNING_PID
+generated.keystore
+generated.truststore
+*.log
+
+# Scala-IDE specific
+.scala_dependencies
+.classpath
+.project
+.settings/
+.cache-main
+.cache-tests
+
 bin/
 /db
 .eclipse
@@ -7,10 +26,10 @@ bin/
 /modules
 /project/project
 /project/target
-/target
 tmp/
 test-result
 server.pid
 *.eml
 /dist/
 .cache
+
