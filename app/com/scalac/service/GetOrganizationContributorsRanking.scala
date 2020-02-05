@@ -1,114 +1,112 @@
 package com.scalac.service
 
-import com.scalac.model.{Repository, User}
+import com.scalac.config.GithubApiConfig
+import com.scalac.model.{Contributor, Organization, Project}
 import javax.inject.Inject
-import play.api.libs.json.{JsArray, Json, OFormat}
-import play.api.{Configuration, Logger}
-import play.api.libs.ws.{WSClient, WSRequest, WSResponse}
+import play.api.libs.json._
+import play.api.libs.ws.{WSClient, WSResponse}
 
-import scala.annotation.tailrec
+import cats._
+import cats.implicits._
+import cats.syntax._
 import scala.language.postfixOps
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.util.matching.Regex
 
-class CallExternalApi @Inject()(ws: WSClient, config: Configuration) {
+class GetOrganizationContributorsRanking @Inject()(ws: WSClient,githubApiConfig: GithubApiConfig) {
 
-  import CallExternalApi._
+  implicit val organizationFormat: OFormat[Organization] = Json.format[Organization]
+  implicit val projectFormat: OFormat[Project] = Json.format[Project]
+  implicit val contributionFormat: OFormat[Contributor] = Json.format[Contributor]
 
-  val token: String = config.get[String]("GH_TOKEN")
-  val organization = "octokit"
-  val baseUrl = config.get[String]("BASE_URL")
+  val itemsOnPage = 30 // TODO: Make config from it
 
-  //  val organization = "freecodecamp"  // not working, at one point is throwing exception because result is empty and cannot parse Json
-  // TO DO
+  def start(organizationName: String) : Future[List[Contributor]] = {
+    val test = for {
+      numberOfPages <- getNumberOfProjectPages(organizationName)
+      projects <- getOrganizationProjects(organizationName, numberOfPages / itemsOnPage)
+      contributions <- getAllProjectsContributors(organizationName, projects)
+    } yield contributions // TODO: Add reduce
 
-
-  def findNumberOfPages(linkHeader: String): String = {
-//    val pattern: Regex = """(?=>; rel="next")(?:.*)(?<=page=)(.*)(?=>; rel="last")""".r
-    val pattern: Regex = """page=([0-9]+)>; rel="last"""".r
-    if (linkHeader.equals("1")) "1" else pattern.findAllIn(linkHeader).group(1)
+    println(Await.result(test, 5.second)) // TODO: Remove (only for tests)
+    test
   }
 
-  def start = {
+  // TODO: Move these 3 methods to GetOrganizationProjects service (then rename getOrganizationProjects to `list`)
+  def getNumberOfProjectPages(organizationName: String): Future[Int] =
+    ws.url(s"${githubApiConfig.baseUrl}/users/$organizationName")
+      .withMethod("GET")
+      .addHttpHeaders("Authorization" -> s"token ${githubApiConfig.ghToken}").get()
+      .map { res =>
+        res.json.as[Organization].public_repos // TODO: Do something with the name public_repos
+      }
 
-    val repositoriesUrl = s"${baseUrl}/orgs/${organization}/repos"
-    def repositoryUsersContribution(repositoryName: String) = s"${baseUrl}/repos/${organization}/${repositoryName}/contributors"
-
-    val repos: List[Repository] = Await.result(downloadRepositories(repositoriesUrl), 10 seconds)
-
-    val a: Seq[Future[List[User]]] = repos.map(x => downloadRepositoryUsersAndActivityCount(repositoryUsersContribution(x.name))(x.name))
-    val b: Seq[User] = a.flatMap(x => Await.result(x, 50 seconds))
-    val c: Map[String, Long] = b.groupMapReduce(_.login)(x => x.contributions)(_ + _)
-
-    c.toList.sortBy(_._2).reverse
+  def getOrganizationProjects(organizationName: String, pages: Int): Future[List[Project]] = {
+    val projectPages = (1 to pages).map(page => getProjectsFromPage(organizationName, page))
+    Future.sequence(projectPages).map(_.flatten.toList)
   }
 
-  def pageCountWithFirstPage(url: String): (String, Future[WSResponse]) = {
-    val firstPage: Future[WSResponse] = ws.url(url).withMethod("HEAD").addHttpHeaders("Authorization" -> s"token ${token}").get()
-    val headerWithTotalPagesCount = Await.result(firstPage.map(x => x.header("Link")), 5 seconds)
-    val totalPagesCount = findNumberOfPages(headerWithTotalPagesCount.getOrElse("1"))
-    (totalPagesCount, firstPage)
-  }
-
-  def downloadRepositories(url: String): Future[List[Repository]] = {
-    val pageCountWithFirstOne = pageCountWithFirstPage(url)
-
-    @tailrec
-    def go(counter: Int, acc: Future[List[Repository]]): Future[List[Repository]] = {
-      if (counter == pageCountWithFirstOne._1.toInt) acc
-      else go(counter + 1, acc.flatMap(x => fetchFromPageAsync((counter + 1).toString)(url).map(y => x ++ y)))
-    }
-
-    go(1, responseToRepo(pageCountWithFirstOne._2))
-  }
-
-  def downloadRepositoryUsersAndActivityCount(url: String)(repositoryName: String) = {
-    val pageCountWithFirstOne = pageCountWithFirstPage(url)
-
-    def go(counter: Int, acc: Future[List[User]]): Future[List[User]] = {
-      if (counter == pageCountWithFirstOne._1.toInt) acc
-      else go(counter + 1, acc.flatMap(x => fetchFromPageAsync2((counter + 1).toString, repositoryName)(url).map(y => x ++ y)))
-    }
-
-    go(1, responseToUser(pageCountWithFirstOne._2))
-  }
-
-  def responseToRepo(response: Future[WSResponse]): Future[List[Repository]] = {
-    response
+  def getProjectsFromPage(organizationName: String, page: Int): Future[List[Project]] =
+    ws.url(s"${githubApiConfig.baseUrl}/orgs/$organizationName/repos?page=$page")
+      .withMethod("GET")
+      .addHttpHeaders("Authorization" -> s"token ${githubApiConfig.ghToken}").get()
       .map { res =>
         res.json.as[JsArray]
-          .value.map(record => record.validate[Repository].get)
+          .value.map(record => record.validate[Project].get)
       }.map(_.toList)
+
+
+  // TODO: Move these methods below to new service `GetContributors`
+  def getAllProjectsContributors(organizationName: String, projects: List[Project]) : Future[List[Contributor]] = {
+    val projectContributors = projects.map(project => getProjectContributors(organizationName, project.name))
+    Future.sequence(projectContributors).map(_.flatten)
   }
 
-  def responseToUser(response: Future[WSResponse]): Future[List[User]] = {
-    response
+  // TODO: Maybe make config from it
+  val GITHUB_NUMBER_OF_PAGES_FROM_LINK_HEADER : Regex = "page=([0-9]+)>; rel=\\\"last\\\"".r
+
+  // TODO: Document it. Write some comment why whe do this this way
+  def getNumberOfContributorsPages(firstPage: Future[WSResponse]) : Future[Int] =  firstPage.map(
+    response => response.headers.find {
+      case (headerName, _) => headerName.trim == "Link"
+    }.flatMap {
+      case (_, headerValue) => {
+        GITHUB_NUMBER_OF_PAGES_FROM_LINK_HEADER
+          .findFirstMatchIn(headerValue.toString()).map(_.group(1).toInt)
+      }
+    }.getOrElse(0)
+  )
+
+  def getContributorsFromResponse(request: Future[WSResponse]) : Future[List[Contributor]] =
+    request
       .map { res =>
         res.json.as[JsArray]
-          .value.map(record => record.validate[User].get)
+          .value.map(record => record.validate[Contributor].get)
       }.map(_.toList)
+
+  def getProjectContributors(organizationName: String, projectName: String) : Future[List[Contributor]] = {
+    val firstPage : Future[WSResponse] = getContributorsResponseFromPage(organizationName, projectName, 0)
+    val numberOfContributorsPages = getNumberOfContributorsPages(firstPage)
+
+    val otherPages: Future[List[Future[WSResponse]]] = numberOfContributorsPages.map(pages =>
+      (for (page <- 1 to pages) yield getContributorsResponseFromPage(organizationName, projectName, page)).toList
+    )
+
+    for {
+      firstPageContributors <- getContributorsFromResponse(firstPage)
+      otherPagesContributors <- otherPages.flatMap{
+        otherPagesData => otherPagesData.map(responseF => getContributorsFromResponse(responseF)).flatSequence
+      }
+    } yield firstPageContributors ::: otherPagesContributors
+
   }
 
-  def fetchFromPageAsync(page: String)(url: String): Future[List[Repository]] = {
-    val response = ws.url(s"${url}?page=${page}")
+  // TODO: Think about creating config for urls
+  def getContributorsResponseFromPage(organizationName: String, projectName: String, page: Int): Future[WSResponse] =
+    ws.url(s"${githubApiConfig.baseUrl}/repos/$organizationName/$projectName/contributors?page=$page")
       .withMethod("GET")
-      .addHttpHeaders("Authorization" -> s"token ${token}").get()
+      .addHttpHeaders("Authorization" -> s"token ${githubApiConfig.ghToken}").get()
 
-    responseToRepo(response)
-  }
-
-  def fetchFromPageAsync2(page: String, repositoryName: String)(url: String): Future[List[User]] = {
-    val response = ws.url(s"${url}?page=${page}")
-      .withMethod("GET")
-      .addHttpHeaders("Authorization" -> s"token ${token}").get()
-
-    responseToUser(response)
-  }
-}
-
-object CallExternalApi {
-  implicit val newImplicit: OFormat[Repository] = Json.format[Repository]
-  implicit val user: OFormat[User] = Json.format[User]
 }

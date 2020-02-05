@@ -1,6 +1,3 @@
-package io.scalac.model
-
-import play.api.libs.json._
-import play.api.libs.functional.syntax._
+package com.scalac.model
 
 case class Project(id: Int, name: String)
