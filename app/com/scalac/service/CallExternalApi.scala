@@ -21,12 +21,13 @@ class CallExternalApi @Inject()(ws: WSClient, config: Configuration) {
   val organization = "octokit"
   val baseUrl = config.get[String]("BASE_URL")
 
-  //  val organization = "freecodecamp"  // not working, at one point is throwing exception because result is empty and cannot prase Json
+  //  val organization = "freecodecamp"  // not working, at one point is throwing exception because result is empty and cannot parse Json
   // TO DO
 
 
   def findNumberOfPages(linkHeader: String): String = {
-    val pattern: Regex = """(?=>; rel="next")(?:.*)(?<=page=)(.*)(?=>; rel="last")""".r
+//    val pattern: Regex = """(?=>; rel="next")(?:.*)(?<=page=)(.*)(?=>; rel="last")""".r
+    val pattern: Regex = """page=([0-9]+)>; rel="last"""".r
     if (linkHeader.equals("1")) "1" else pattern.findAllIn(linkHeader).group(1)
   }
 
@@ -42,11 +43,10 @@ class CallExternalApi @Inject()(ws: WSClient, config: Configuration) {
     val c: Map[String, Long] = b.groupMapReduce(_.login)(x => x.contributions)(_ + _)
 
     c.toList.sortBy(_._2).reverse
-
   }
 
   def pageCountWithFirstPage(url: String): (String, Future[WSResponse]) = {
-    val firstPage: Future[WSResponse] = ws.url(url).withMethod("GET").addHttpHeaders("Authorization" -> s"token ${token}").get()
+    val firstPage: Future[WSResponse] = ws.url(url).withMethod("HEAD").addHttpHeaders("Authorization" -> s"token ${token}").get()
     val headerWithTotalPagesCount = Await.result(firstPage.map(x => x.header("Link")), 5 seconds)
     val totalPagesCount = findNumberOfPages(headerWithTotalPagesCount.getOrElse("1"))
     (totalPagesCount, firstPage)
