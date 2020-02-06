@@ -1,5 +1,5 @@
 # Contributors controller
-GET     /org/:org_name/contributors                           com.scalac.controllers.GithubApiController.index(org_name: String)
+GET     /org/:org_name/contributors    io.scalac.controllers.GithubApiController.index(org_name: String)
 
 # Swagger
 GET       /swagger.json        controllers.ApiHelpController.getResources

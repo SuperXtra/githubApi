@@ -1,7 +1,7 @@
-package com.scalac.controllers
+package io.scalac.controllers
 
-import com.scalac.model.Contributor
-import com.scalac.service.GetOrganizationContributorsRanking
+import io.scalac.model.Contributor
+import io.scalac.service.GetOrganizationContributorsRanking
 import javax.inject._
 import play.api.Configuration
 import play.api.mvc._
@@ -16,12 +16,13 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import io.swagger.annotations._
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.parsing.input.PagedSeq
 
 @Api(value = "Contributors")
 @Singleton
-class GithubApiController @Inject()(ws: WSClient, cc: ControllerComponents, getOrganizationContributors: GetOrganizationContributorsRanking)
+class GithubApiController @Inject()(cc: ControllerComponents, getOrganizationContributors: GetOrganizationContributorsRanking)
   extends AbstractController(cc) {
 
   implicit val contributorsWrites: Writes[Contributor] =

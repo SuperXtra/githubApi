@@ -17,6 +17,7 @@ libraryDependencies += ws
 libraryDependencies += ehcache
 libraryDependencies += "org.scalatestplus.play" %% "scalatestplus-play" % "4.0.3" % Test
 libraryDependencies += "com.github.pureconfig" %% "pureconfig" % "0.12.2"
+libraryDependencies += specs2 % Test
 libraryDependencies += "org.scalactic" %% "scalactic" % "3.1.0"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.1.0" % Test
 libraryDependencies += "org.typelevel" %% "cats-core" % "2.0.0"

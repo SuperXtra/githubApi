@@ -1,6 +1,6 @@
 import com.google.inject.AbstractModule
-import com.scalac.config.GithubApiConfig
 import controllers.ApiHelpController
+import io.scalac.config.GithubApiConfig
 import play.modules.swagger.SwaggerPluginImpl
 import pureconfig._
 import pureconfig.generic.auto._

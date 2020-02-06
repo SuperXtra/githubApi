@@ -1,4 +1,4 @@
-package com.scalac.model
+package io.scalac.model
 
 case class Contributor(
                          name: String,

@@ -1,4 +1,4 @@
-package com.scalac.config
+package io.scalac.config
 
 case class GithubApiConfig(
                             ghToken: String,
