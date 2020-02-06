@@ -1,7 +1,7 @@
 package com.scalac.service
 
 import com.scalac.config.GithubApiConfig
-import com.scalac.model.{Contributor, Project}
+import com.scalac.model.{Contributor, Repo}
 import javax.inject.Inject
 import play.api.libs.json.{JsArray, JsPath, Json, OFormat, Reads, Writes}
 import play.api.{Configuration, Logger}
@@ -20,7 +20,7 @@ import play.api.libs.functional.syntax._
 import play.api.Logger
 
 
-class GetOrganizationContributorsRanking @Inject()(ws: WSClient, githubApiConfig: GithubApiConfig, getOrganizationProjectService: GetOrganizationProjectsService) {
+class GetOrganizationContributorsRanking @Inject()(ws: WSClient, githubApiConfig: GithubApiConfig, getOrganizationProjectService: GetOrganizationReposService) {
 
   val logger: Logger = Logger(this.getClass())
   implicit val contributionFormat: Reads[Contributor] = (
@@ -45,7 +45,7 @@ class GetOrganizationContributorsRanking @Inject()(ws: WSClient, githubApiConfig
 
 
   // TODO: Move these methods below to new service `GetContributors`
-  def getAllProjectsContributors(organizationName: String, projects: List[Project]): Future[List[Contributor]] = {
+  def getAllProjectsContributors(organizationName: String, projects: List[Repo]): Future[List[Contributor]] = {
     logger.warn(projects.toString())
     val projectContributors = projects.map(project => getProjectContributors(organizationName, project.name))
     Future.sequence(projectContributors).map(_.flatten)

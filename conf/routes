@@ -1,1 +1,10 @@
-GET     /                           com.scalac.controllers.GithubApiController.index
+# Contributors controller
+GET     /org/:org_name/contributors                           com.scalac.controllers.GithubApiController.index(org_name: String)
+
+# Swagger
+GET       /swagger.json        controllers.ApiHelpController.getResources
+GET       /docs/               controllers.Assets.at(path="/public/swagger",file="index.html")
+GET       /docs/*file          controllers.Assets.at(path="/public/swagger",file)
+
+# Redirection to Swagger on root
+GET       /                    controllers.Default.redirect(to = "/docs/")

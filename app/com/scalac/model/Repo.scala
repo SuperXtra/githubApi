@@ -1,3 +1,3 @@
 package com.scalac.model
 
-case class Project(id: Int, name: String)
+case class Repo(id: Int, name: String)

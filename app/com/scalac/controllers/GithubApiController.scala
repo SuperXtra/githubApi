@@ -15,9 +15,11 @@ import play.api.libs.functional.syntax._
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import io.swagger.annotations._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.parsing.input.PagedSeq
 
+@Api(value = "Contributors")
 @Singleton
 class GithubApiController @Inject()(ws: WSClient, cc: ControllerComponents, getOrganizationContributors: GetOrganizationContributorsRanking)
   extends AbstractController(cc) {
@@ -30,10 +32,17 @@ class GithubApiController @Inject()(ws: WSClient, cc: ControllerComponents, getO
 
 //  "twbs"
 
-  def index = Action.async {
-    val organizationName = "octokit" // TODO: Make it http param
+  @ApiOperation(
+    nickname = "listContributors",
+    value = "List all contributors",
+    notes = "Returns a list of contributors sorted in ascending order",
+    response = classOf[Contributor],
+    responseContainer = "List",
+    httpMethod = "GET"
+  )
+  def index(org_name: String) = Action.async {
     for {
-      contributors <- getOrganizationContributors.start(organizationName)
+      contributors <- getOrganizationContributors.start(org_name)
     } yield Ok(Json.toJson(contributors))
   }
 }
