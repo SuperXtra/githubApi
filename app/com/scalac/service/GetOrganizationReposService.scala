@@ -3,6 +3,7 @@ package com.scalac.service
 import com.scalac.config.GithubApiConfig
 import com.scalac.model.{Contributor, Repo}
 import javax.inject.Inject
+import play.api.Logger
 import play.api.libs.json.{JsArray, JsPath, Json, OFormat, Reads}
 import play.api.libs.ws.{WSClient, WSResponse}
 import play.api.libs.functional.syntax._
@@ -16,9 +17,9 @@ class GetOrganizationReposService @Inject()(ws: WSClient, githubApiConfig: Githu
 
   val GITHUB_NUMBER_OF_PAGES_FROM_LINK_HEADER : Regex = "page=([0-9]+)>; rel=\\\"last\\\"".r
 
+  val logger: Logger = Logger(this.getClass())
 
   implicit val projectFormat: OFormat[Repo] = Json.format[Repo]
-
 
   // TODO: Document it. Write some comment why whe do this this way
   def getNumberOfContributorsPages(organizationName: String, repositoryName: String) : Future[Int] =
@@ -64,6 +65,11 @@ class GetOrganizationReposService @Inject()(ws: WSClient, githubApiConfig: Githu
         res.json.as[JsArray]
           .value.map(record => record.validate[Repo].get)
       }.map(_.toList)
+    .recover {
+      case error: Throwable =>
+        logger.error(s"could not load project for $organizationName page $page", error)
+        Nil
+    }
 
 
 }

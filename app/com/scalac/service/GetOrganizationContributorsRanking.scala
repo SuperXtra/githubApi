@@ -23,6 +23,7 @@ import play.api.Logger
 class GetOrganizationContributorsRanking @Inject()(ws: WSClient, githubApiConfig: GithubApiConfig, getOrganizationProjectService: GetOrganizationReposService) {
 
   val logger: Logger = Logger(this.getClass())
+
   implicit val contributionFormat: Reads[Contributor] = (
     (JsPath \ "login").read[String] and
       (JsPath \ "contributions").read[Int]
@@ -63,6 +64,14 @@ class GetOrganizationContributorsRanking @Inject()(ws: WSClient, githubApiConfig
           .value.map(record => record.validate[Contributor].get)
       }
       }.map(_.toList)
+      .recover {
+        case error : Throwable => {
+          request.foreach { req =>
+            logger.error(s"failed to fetch contributors for request ${req.uri}" , error)
+          }
+          Nil
+        }
+      }
   }
 
   def getProjectContributors(organizationName: String, projectName: String): Future[List[Contributor]] = {
