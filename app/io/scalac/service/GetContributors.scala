@@ -13,7 +13,7 @@ import play.api.Logger
 import play.api.libs.functional.syntax._
 
 
-class GetContributors @Inject()(ws: WSClient, getOrganizationRepos: GetOrganizationRepos, githubApiConfig: GithubApiConfig){
+class GetContributors @Inject()(ws: WSClient, githubApiConfig: GithubApiConfig){
 
   val logger: Logger = Logger(this.getClass)
   val GITHUB_NUMBER_OF_PAGES_FROM_LINK_HEADER: Regex = "page=([0-9]+)>; rel=\\\"last\\\"".r
@@ -23,11 +23,11 @@ class GetContributors @Inject()(ws: WSClient, getOrganizationRepos: GetOrganizat
     Future.sequence(projectContributors).map(_.flatten)
   }
 
-  private def getProjectContributors(organizationName: String, projectName: String): Future[List[Contributor]] = {
-    val numberOfContributorsPages = getNumberOfContributorsPages(organizationName, projectName)
+  def getProjectContributors(organizationName: String, repositoryName: String): Future[List[Contributor]] = {
+    val numberOfContributorsPages = getNumberOfContributorsPages(organizationName, repositoryName)
 
     val pages: Future[List[Future[WSResponse]]] = numberOfContributorsPages.map(pages =>
-      (for (page <- 1 to pages) yield getContributorsResponseFromPage(organizationName, projectName, page)).toList
+      (for (page <- 1 to pages) yield getContributorsResponseFromPage(organizationName, repositoryName, page)).toList
     )
 
     for {
@@ -48,7 +48,7 @@ class GetContributors @Inject()(ws: WSClient, getOrganizationRepos: GetOrganizat
    *         for repository is to access it from header(Link). Information is accessed using regular
    *         expression.
    */
-  private def getNumberOfContributorsPages(organizationName: String, repositoryName: String) : Future[Int] =
+  def getNumberOfContributorsPages(organizationName: String, repositoryName: String) : Future[Int] =
     ws.url(s"${githubApiConfig.baseUrl}/repos/$organizationName/$repositoryName/contributors")
       .withMethod("HEAD")
       .addHttpHeaders("Authorization" -> s"token ${githubApiConfig.ghToken}").get()
@@ -64,13 +64,13 @@ class GetContributors @Inject()(ws: WSClient, getOrganizationRepos: GetOrganizat
       )
 
 
-  private def getContributorsResponseFromPage(organizationName: String, repositoryName: String, page: Int): Future[WSResponse] =
+  def getContributorsResponseFromPage(organizationName: String, repositoryName: String, page: Int): Future[WSResponse] =
     ws.url(s"${githubApiConfig.baseUrl}/repos/$organizationName/$repositoryName/contributors?page=$page")
       .withMethod("GET")
       .addHttpHeaders("Authorization" -> s"token ${githubApiConfig.ghToken}").get()
 
 
-  private def getContributorsFromResponse(response: Future[WSResponse]): Future[List[Contributor]] = {
+  def getContributorsFromResponse(response: Future[WSResponse]): Future[List[Contributor]] = {
     import GetContributors._
     response
       .map { res => {

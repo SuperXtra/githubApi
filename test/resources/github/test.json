@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "someSpam": "test",
+    "name": "amazing project"
+  },
+  {
+    "id": 2,
+    "name": "another project",
+    "not_needed_field": 1234
+  }
+]

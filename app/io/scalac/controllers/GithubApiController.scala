@@ -31,8 +31,6 @@ class GithubApiController @Inject()(cc: ControllerComponents, getOrganizationCon
       "contributions" -> contribution.contributions
     )
 
-//  "twbs"
-
   @ApiOperation(
     nickname = "listContributors",
     value = "List all contributors",

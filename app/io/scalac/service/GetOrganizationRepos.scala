@@ -36,7 +36,7 @@ class GetOrganizationRepos @Inject()(ws: WSClient, githubApiConfig: GithubApiCon
     Future.sequence(projectPages).map(_.flatten.toList)
   }
 
-  private def getReposFromPage(organizationName: String, page: Int): Future[List[Repo]] =
+  def getReposFromPage(organizationName: String, page: Int): Future[List[Repo]] =
     ws.url(s"${githubApiConfig.baseUrl}/orgs/$organizationName/repos?page=$page")
       .withMethod("GET")
       .addHttpHeaders("Authorization" -> s"token ${githubApiConfig.ghToken}").get()
