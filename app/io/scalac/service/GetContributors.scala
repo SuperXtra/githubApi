@@ -3,12 +3,14 @@ package io.scalac.service
 import io.scalac.model.{Contributor, Repo}
 import javax.inject.Inject
 import play.api.libs.json.{JsArray, JsPath, Reads}
+
 import scala.concurrent.Future
 import scala.util.matching.Regex
 import scala.concurrent.ExecutionContext.Implicits.global
 import play.api.libs.ws.{WSClient, WSResponse}
 import cats.implicits._
 import io.scalac.config.GithubApiConfig
+import io.scalac.exceptions.GithubAppException
 import play.api.Logger
 import play.api.libs.functional.syntax._
 
@@ -18,9 +20,17 @@ class GetContributors @Inject()(ws: WSClient, githubApiConfig: GithubApiConfig){
   val logger: Logger = Logger(this.getClass)
   val GITHUB_NUMBER_OF_PAGES_FROM_LINK_HEADER: Regex = "page=([0-9]+)>; rel=\\\"last\\\"".r
 
-  def getAllProjectsContributors(organizationName: String, projects: List[Repo]): Future[List[Contributor]] = {
-    val projectContributors = projects.map(project => getProjectContributors(organizationName, project.name))
-    Future.sequence(projectContributors).map(_.flatten)
+  def getAllProjectsContributors(organizationName: String, projects: Either[GithubAppException,List[Repo]]): Future[Either[GithubAppException,List[Contributor]]] = {
+    projects match {
+      case Left(error) => Future(error.asLeft)
+      case Right(repos) => {
+        val projectContributors = repos.map(repo => getProjectContributors(organizationName, repo.name))
+        Future.sequence(projectContributors).map(_.flatten.asRight)
+      }
+    }
+
+//    val projectContributors = projects match {map{(project => getProjectContributors(organizationName, project.name))
+//    Future.sequence(projectContributors).map(_.flatten)
   }
 
   def getProjectContributors(organizationName: String, repositoryName: String): Future[List[Contributor]] = {

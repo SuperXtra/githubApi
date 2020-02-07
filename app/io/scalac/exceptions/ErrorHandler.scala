@@ -1,10 +1,11 @@
-package io.scalac
+package io.scalac.exceptions
 
-import play.api.http.HttpErrorHandler
-import play.api.mvc._
-import play.api.mvc.Results._
-import scala.concurrent._
 import javax.inject.Singleton
+import play.api.http.HttpErrorHandler
+import play.api.mvc.Results._
+import play.api.mvc._
+
+import scala.concurrent._
 
 @Singleton
 class ErrorHandler extends HttpErrorHandler {

@@ -15,7 +15,6 @@ PlayKeys.devSettings := Seq("play.server.http.port" -> "8080")
 libraryDependencies ++= Seq(
   guice,
   ws,
-  ehcache,
   "org.scalatestplus.play" %% "scalatestplus-play" % "4.0.3" % Test,
   "com.github.pureconfig" %% "pureconfig" % "0.12.2",
   specs2 % Test,
@@ -23,6 +22,7 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.1.0" % Test,
   "org.typelevel" %% "cats-core" % "2.0.0",
   "de.leanovate.play-mockws" %% "play-mockws" % "2.7.1" % Test,
+  caffeine,
   "com.iterable" %% "swagger-play" % "2.0.1"
 )
 scalacOptions ++= Seq(
