@@ -61,7 +61,7 @@ class GetOrganizationReposTest
         Repo(1, "amazing project"),
         Repo(2, "another project")
       )
-      result shouldBe expectedRepos
+      result.getOrElse(Nil) shouldBe expectedRepos
     }
 
     "get repos from first page, real world json" in {
@@ -95,7 +95,7 @@ class GetOrganizationReposTest
 
       Then("it should return 30 repositories")
 
-      result.size shouldBe 30
+      result.getOrElse(Nil).size shouldBe 30
     }
 
     "get repos from second page, real world json" in {
@@ -129,7 +129,7 @@ class GetOrganizationReposTest
 
       Then("it should return 15 repositories")
 
-      result.size shouldBe 15
+      result.getOrElse(Nil).size shouldBe 15
     }
   }
 }

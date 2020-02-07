@@ -8,8 +8,9 @@ import play.api.Logger
 import play.api.http.Status
 import play.api.libs.json.{JsArray, Json, OFormat}
 import play.api.libs.ws.WSClient
+import cats._
+import cats.data._
 import cats.implicits._
-
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.matching.Regex
@@ -41,46 +42,60 @@ class GetOrganizationRepos @Inject()(ws: WSClient, githubApiConfig: GithubApiCon
         }
       )
 
-//  def getReposFromPage(organizationName: String, page: Int): Future[Either[GithubAppException,List[Repo]]] =
-//    ws.url(s"${githubApiConfig.baseUrl}/orgs/$organizationName/repos?page=$page")
-//      .withMethod("GET")
-//      .addHttpHeaders("Authorization" -> s"token ${githubApiConfig.ghToken}").get()
-//      .map( response =>
-//          response.status match {
-//        case Status.OK =>
-//                  response.json.as[JsArray]
-//                    .value.map(record => record.validate[Repo].get).toList.asRight
-//            .recover{
-//              case error: Throwable =>
-//                logger.error(s"could not load project for $organizationName page $page", error)
-//                                  Nil
-//            }
-//        case Status.NOT_FOUND => ResourceNotFound.asLeft
-//        case Status.FORBIDDEN => Forbidden.asLeft
-//        case Status.UNAUTHORIZED => Unauthorized.asLeft
-//        }
-//      )
-
-  def getReposFromPage(organizationName: String, page: Int): Future[List[Repo]] =
+  def getReposFromPage(organizationName: String, page: Int): Future[Either[GithubAppException, List[Repo]]] =
     ws.url(s"${githubApiConfig.baseUrl}/orgs/$organizationName/repos?page=$page")
       .withMethod("GET")
       .addHttpHeaders("Authorization" -> s"token ${githubApiConfig.ghToken}").get()
-      .map { res =>
-        res.json.as[JsArray]
-          .value.map(record => record.validate[Repo].get)
-      }.map(_.toList)
-      .recover {
-        case error: Throwable =>
-          logger.error(s"could not load project for $organizationName page $page", error)
-          Nil
-      }
+      .map( response =>
+          response.status match {
+        case Status.OK => {
+          response.json.as[JsArray]
+            .value.map(record => record.validate[Repo].get).toList.asRight
+//            .recover{
+//              case e: Throwable =>
+//                logger.error(s"could not load project for $organizationName page $page", e)
+//            Nil
+//            }
+        }
+        case Status.NOT_FOUND => ResourceNotFound.asLeft
+        case Status.FORBIDDEN => Forbidden.asLeft
+        case Status.UNAUTHORIZED => Unauthorized.asLeft
+        }
+      )
 
   def repos(organizationName: String, pages: Either[GithubAppException, Int]): Future[Either[GithubAppException,List[Repo]]] = {
     pages match {
       case Left(value) => Future(value.asLeft)
       case Right(pages) =>
-        val projectPages= (1 to pages).map(page => getReposFromPage(organizationName, page))
-        Future.sequence(projectPages).map(_.flatten.toList.asRight)
-      }
+        (1 to pages).toList.flatTraverse(round => Nested(getReposFromPage(organizationName, round)).map(_.toList)).value
     }
+  }
+
+//    def repos(organizationName: String, pages: Either[GithubAppException, Int]): Future[Either[GithubAppException,List[Repo]]] = {
+//      pages match {
+//        case Left(value) => Future(value.asLeft)
+//        case Right(pages) =>
+//          val projectPages= (1 to pages).map(page => getReposFromPage(organizationName, page))
+//          val abc = Future.sequence(projectPages).map(_.flatten.toList.asRight)
+//        }
+//      }
+
+
+//  def getReposFromPage(organizationName: String, page: Int): Future[List[Repo]] =
+//    ws.url(s"${githubApiConfig.baseUrl}/orgs/$organizationName/repos?page=$page")
+//      .withMethod("GET")
+//      .addHttpHeaders("Authorization" -> s"token ${githubApiConfig.ghToken}").get()
+//      .map { res =>
+//        res.json.as[JsArray]
+//          .value.map(record => record.validate[Repo].get)
+//      }.map(_.toList)
+//      .recover {
+//        case error: Throwable =>
+//          logger.error(s"could not load project for $organizationName page $page", error)
+//          Nil
+//      }
+
+
+
+
 }

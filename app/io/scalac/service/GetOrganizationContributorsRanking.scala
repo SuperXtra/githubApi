@@ -22,7 +22,7 @@ class GetOrganizationContributorsRanking @Inject()(getOrganizationRepos: GetOrga
     for {
       numberOfRepositoriesPages: Either[GithubAppException, Int] <- getOrganizationRepos.getNumberOfRepositoryPages(organizationName)
       repos: Either[GithubAppException, List[Repo]] <- getOrganizationRepos.repos(organizationName, numberOfRepositoriesPages)
-      contributors: Either[GithubAppException, List[Contributor]] <- getContributors.getAllProjectsContributors(organizationName, repos)
+      contributors <- getContributors.getAllProjectsContributors(organizationName, repos)
     } yield contributors
   }
 
