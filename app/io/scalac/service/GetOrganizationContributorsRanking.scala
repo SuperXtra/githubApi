@@ -1,5 +1,6 @@
 package io.scalac.service
 
+import io.scalac.error.GithubApiError
 import javax.inject.Inject
 import io.scalac.model.Contributor
 
@@ -13,7 +14,7 @@ class GetOrganizationContributorsRanking @Inject()(getOrganizationRepos: GetOrga
 
   val logger: Logger = Logger(this.getClass)
 
-  def start(organizationName: String): Future[List[Contributor]] =
+  def start(organizationName: String): Future[Either[GithubApiError, List[Contributor]]] =
     for {
       numberOfRepositoriesPages <- getOrganizationRepos.getNumberOfRepositoryPages(organizationName)
       repos <- getOrganizationRepos.repos(organizationName, numberOfRepositoriesPages)
