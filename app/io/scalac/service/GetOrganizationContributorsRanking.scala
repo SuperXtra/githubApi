@@ -14,7 +14,7 @@ class GetOrganizationContributorsRanking @Inject()(getOrganizationRepos: GetOrga
 
   val logger: Logger = Logger(this.getClass)
 
-  def start(organizationName: String): Future[Either[GithubApiError, List[Contributor]]] =
+  def start(organizationName: String): Future[List[Contributor]] =
     for {
       numberOfRepositoriesPages <- getOrganizationRepos.getNumberOfRepositoryPages(organizationName)
       repos <- getOrganizationRepos.repos(organizationName, numberOfRepositoriesPages)

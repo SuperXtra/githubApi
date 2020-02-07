@@ -19,13 +19,13 @@ class GetOrganizationRepos @Inject()(ws: WSClient, githubApiConfig: GithubApiCon
   val GITHUB_NUMBER_OF_PAGES_FROM_LINK_HEADER: Regex = "page=([0-9]+)>; rel=\\\"last\\\"".r
   implicit val projectFormat: OFormat[Repo] = Json.format[Repo]
 
-  def getNumberOfRepositoryPages(organizationName: String): Future[Either[GithubApiError, Int]] =
+  def getNumberOfRepositoryPages(organizationName: String): Future[Int] =
     ws.url(s"${githubApiConfig.baseUrl}/orgs/$organizationName/repos")
       .withMethod("HEAD")
       .addHttpHeaders("Authorization" -> s"token ${githubApiConfig.ghToken}").get()
       .map( response =>
         response.status match {
-          case Status.OK =>Right{
+          case Status.OK => {
             response.headers.find {
               case (headerName, _) => headerName.trim == "Link"
             }.flatMap {
@@ -34,8 +34,6 @@ class GetOrganizationRepos @Inject()(ws: WSClient, githubApiConfig: GithubApiCon
               }
             }.getOrElse(1)
           }
-          case Status.UNAUTHORIZED =>Left(NotFound)
-          case Status.NOT_FOUND =>Left(Unauthorized)
         }
       )
 
