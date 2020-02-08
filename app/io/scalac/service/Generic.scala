@@ -1,7 +1,6 @@
 package io.scalac.service
 
 import io.scalac.config.GithubApiConfig
-import io.scalac.exceptions.{CouldNotAuthorizeToGithubApi, CouldNotResolveNoContentResponseComputationAborted, GithubAppException, GithubPageNotFound, UsedGithubApiQuota}
 import javax.inject.Inject
 import play.api.Logger
 import play.api.http.Status
