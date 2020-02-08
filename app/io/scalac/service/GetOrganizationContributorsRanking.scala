@@ -16,19 +16,11 @@ import scala.concurrent.impl.Promise
 
 class GetOrganizationContributorsRanking @Inject()(getOrganizationRepos: GetOrganizationRepos, getContributors: GetContributors) {
 
-  val logger: Logger = Logger(this.getClass)
-
   def start(organizationName: String): Future[Either[GithubAppException,List[Contributor]]] = {
     for {
-      numberOfRepositoriesPages: Either[GithubAppException, Int] <- getOrganizationRepos.getNumberOfRepositoryPages(organizationName)
-      repos: Either[GithubAppException, List[Repo]] <- getOrganizationRepos.repos(organizationName, numberOfRepositoriesPages)
+      numberOfRepositoriesPages <- getOrganizationRepos.getNumberOfRepositoryPages(organizationName)
+      repos <- getOrganizationRepos.repos(organizationName, numberOfRepositoriesPages)
       contributors <- getContributors.getAllProjectsContributors(organizationName, repos)
     } yield contributors
   }
-
-
-
-//      .groupMapReduce(_.name)(_.contributions)(_ + _).toList
-//      .map(rec => Contributor(rec._1, rec._2))
-//      .sortWith(_.contributions > _.contributions)
 }
