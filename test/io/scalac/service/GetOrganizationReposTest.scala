@@ -12,7 +12,7 @@ import org.scalatest.time.{Millis, Span}
 import play.api.mvc.Results._
 import play.api.libs.json._
 import mockws.MockWSHelpers._
-
+import io.scalac.model.Repo
 import scala.io.Source
 
 class GetOrganizationReposTest
@@ -90,6 +90,29 @@ class GetOrganizationReposTest
       result.getOrElse(Nil).size shouldBe 30
     }
 
+    "get repos from first page, real world json [generic test]" in new Context with ExampleReposPageOne {
+
+      Given("some organization name")
+      val organizationName = "test_organization"
+
+      And("a ws client that will return one page of 30 repos in the response")
+      val wsClient = MockWS {
+        case (_, _) => Action {
+          Ok(Json.parse(reposPageOne)).withHeaders("Content-Type" -> "application/json")
+        }
+      }
+
+      When("getting repositories from some page")
+      val result = new Generic(wsClient, config, urlService)
+        .getFromPage[Repo](urlService.reposUrl(
+          organizationName = organizationName,
+          page = 3))
+        .futureValue
+
+      Then("it should return 30 repositories")
+      result.getOrElse(Nil).size shouldBe 30
+    }
+
     "get repos from second page, real world json" in new Context with ExampleReposPageTwo {
 
       Given("some organization name")
@@ -113,14 +136,17 @@ class GetOrganizationReposTest
   }
 
   override implicit def patienceConfig: PatienceConfig =
-    PatienceConfig(Span(500, Millis), Span(10, Millis))
+    PatienceConfig(Span(1000, Millis), Span(100, Millis))
 
   trait Context {
+
+    import io.scalac.service.GetContributors._
 
     val config = GithubApiConfig(
       ghToken = "test_token",
       baseUrl = "",
-      headerRegex = "page=([0-9]+)>; rel=\"last\""
+      headerRegex = "page=([0-9]+)>; rel=\"last\"",
+      cacheTime = 60
     )
 
     val urlService = GetGithubUrls(config)

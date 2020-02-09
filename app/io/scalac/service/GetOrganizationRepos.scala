@@ -17,14 +17,16 @@ import scala.concurrent.Future
 
 class GetOrganizationRepos @Inject()(ws: WSClient, config: GithubApiConfig, url: GetGithubUrls) extends Logging {
 
-  def repos(organizationName: String, pages: Either[GithubAppException, Int]): Future[Either[GithubAppException,List[Repo]]] = {
+  // TODO: get(...)
+  // TODO: try make only one method to return repositories
+  def repos(organizationName: String, pages: Either[GithubAppException, Int]): Future[Either[GithubAppException,List[Repo]]] =
     pages match {
       case Left(value) => Future(value.asLeft)
       case Right(pages) =>
-        (1 to pages).toList.flatTraverse(round => Nested(getReposFromPage(organizationName, round)).map(_.toList)).value
+        (1 to pages).toList.flatTraverse(round => getReposFromPage(organizationName, round).nested.map(_.toList)).value
     }
-  }
 
+  // TODO @deprecated("use generic")
   def getNumberOfRepositoryPages(organizationName: String): Future[Either[GithubAppException, Int]] =
     ws.url(url.organizationUrl(organizationName))
       .withMethod("HEAD")
@@ -38,7 +40,7 @@ class GetOrganizationRepos @Inject()(ws: WSClient, config: GithubApiConfig, url:
               case (_, headerValue) =>
                 config.headerRegex.r.findFirstMatchIn(headerValue.toString()).map(_.group(1).toInt)
             }.getOrElse(1)
-          }.asRight
+            }.asRight
           case Status.NO_CONTENT => 1.asRight
           case Status.NOT_FOUND => GithubPageNotFound.asLeft
           case Status.FORBIDDEN => UsedGithubApiQuota.asLeft
@@ -46,25 +48,26 @@ class GetOrganizationRepos @Inject()(ws: WSClient, config: GithubApiConfig, url:
         }
       )
 
+  // TODO @deprecated("use generic")
   def getReposFromPage(organizationName: String, page: Int): Future[Either[GithubAppException, List[Repo]]] =
     ws.url(url.reposUrl(organizationName, page))
       .withMethod("GET")
       .addHttpHeaders("Authorization" -> s"token ${config.ghToken}").get()
       .map( response =>
-          response.status match {
-        case Status.OK =>
-          response.json.as[JsArray]
-            .value.map(record => record.validate[Repo].get)
-            .toList.asRight[GithubAppException]
-            .recoverWith{
-              case error: Throwable =>
-                logger.error(s"could not load project for $organizationName page $page", error)
-                List.empty[Repo].asRight
-            }
-        case Status.NO_CONTENT => List.empty[Repo].asRight
-        case Status.NOT_FOUND => GithubPageNotFound.asLeft
-        case Status.FORBIDDEN => UsedGithubApiQuota.asLeft
-        case Status.UNAUTHORIZED => CouldNotAuthorizeToGithubApi.asLeft
+        response.status match {
+          case Status.OK =>
+            response.json.as[JsArray]
+              .value.map(record => record.validate[Repo].get)
+              .toList.asRight[GithubAppException]
+              .recoverWith{
+                case error: Throwable =>
+                  logger.error(s"could not load project for $organizationName page $page", error)
+                  List.empty[Repo].asRight
+              }
+          case Status.NO_CONTENT => List.empty[Repo].asRight
+          case Status.NOT_FOUND => GithubPageNotFound.asLeft
+          case Status.FORBIDDEN => UsedGithubApiQuota.asLeft
+          case Status.UNAUTHORIZED => CouldNotAuthorizeToGithubApi.asLeft // TODO add wildcard for not foreseen http issues
         }
       )
 }

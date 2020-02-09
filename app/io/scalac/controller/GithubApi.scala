@@ -1,6 +1,8 @@
 package io.scalac.controller
 
+import io.scalac.config.GithubApiConfig
 import io.scalac.exceptions
+import io.scalac.exceptions.{CouldNotAuthorizeToGithubApi, GithubAppException, GithubPageNotFound, UsedGithubApiQuota}
 import io.scalac.model.Contributor
 import io.scalac.service.GetOrganizationContributorsRanking
 import javax.inject._
@@ -14,8 +16,13 @@ import play.api.cache._
 
 @Api(value = "Contributors")
 @Singleton
-class GithubApi @Inject()(cached: Cached, cc: ControllerComponents, getOrganizationContributors: GetOrganizationContributorsRanking)
+class GithubApi @Inject()(cached: Cached, cc: ControllerComponents, config: GithubApiConfig,  getOrganizationContributors: GetOrganizationContributorsRanking)
   extends AbstractController(cc) with Logging {
+
+  // TODO: swagger might not work with private model
+  case class ErrorInfo(message: String)
+
+  implicit val errorInfoWrites: OWrites[ErrorInfo] = Json.writes[ErrorInfo]
 
   implicit val contributorsWrites: Writes[Contributor] =
     (contribution: Contributor) => Json.obj(
@@ -23,6 +30,10 @@ class GithubApi @Inject()(cached: Cached, cc: ControllerComponents, getOrganizat
       "contributions" -> contribution.contributions
     )
 
+  @ApiResponses(Array(
+    new ApiResponse(code = 401, message = "Provided token is not valid"),
+    new ApiResponse(code = 403, message = "Reached hourly request limit"),
+    new ApiResponse(code = 404, message = "Organization not found")))
   @ApiOperation(
     nickname = "listContributors",
     value = "List all contributors",
@@ -32,26 +43,21 @@ class GithubApi @Inject()(cached: Cached, cc: ControllerComponents, getOrganizat
     httpMethod = "GET"
   )
   def index(org_name: String) =
-  cached.status(_ => "/resource/" + org_name, 200, 60) // TODO: must be confiurable + use named arugments
-  {
-    Action.async {
-      for {
-        contributors <- getOrganizationContributors.start(org_name)
-      } yield contributors match {
-        case Left(value) => value match {
-          case exceptions.GithubPageNotFound => NotFound(Json.toJson(value.toString)) // TODO do not monkey http description, try to get rid off exceptions
-          case exceptions.UsedGithubApiQuota => Forbidden(Json.toJson(value.toString))
-          case exceptions.CouldNotAuthorizeToGithubApi => Unauthorized(Json.toJson(value.toString))
-        }
-        case Right(value) => {
-          val result: List[Contributor] = value.groupMapReduce(_.name)(_.contributions)(_ + _).toList
-            .map(tup2 => Contributor(tup2._1, tup2._2))
-            .sortWith(_.contributions > _.contributions)
-          Ok(Json.toJson(result))
+
+    cached.status(_ => "/resource/" + org_name, status = 200, config.cacheTime) {
+      Action.async {
+        for {
+          contributors <- getOrganizationContributors.start(org_name)
+        } yield contributors match {
+          case Left(error: GithubAppException) =>
+            error match {
+              case GithubPageNotFound => NotFound(Json.toJson(ErrorInfo("organization not found")))
+              case UsedGithubApiQuota => Forbidden(Json.toJson(ErrorInfo("you used your github api quota")))
+              case CouldNotAuthorizeToGithubApi => Unauthorized(Json.toJson(ErrorInfo("bad token")))
+            }
+          case Right(value) => Ok(Json.toJson(value))
         }
       }
     }
-  }
 }
-
 

@@ -114,10 +114,33 @@ class GetContributionsTest extends AnyWordSpec
       result shouldBe 1
     }
 
+
+    "get number of contributors pages when no generic service test" in new Context {
+
+      Given("organization and repository names")
+      val organizationName = "test_organization"
+      val repositoryName = "test_ProjectContributors"
+
+      And("a ws client that will return no content")
+      val wsClient = MockWS {
+        case (_, _) => Action {
+          Ok
+        }
+      }
+
+      When("getting number of project pages")
+      val result = new Generic(wsClient, config, urlService)
+        .QuantityOfPagesToTraverse(urlService.fetchPaginationValueForRepository(organizationName, repositoryName))
+        .futureValue.getOrElse(0)
+
+      Then("it should return 1 page")
+      result shouldBe 1
+    }
+
   }
 
   override implicit def patienceConfig: PatienceConfig =
-    PatienceConfig(Span(500, Millis), Span(10, Millis))
+    PatienceConfig(Span(1000, Millis), Span(100, Millis))
 
   trait Context {
 
@@ -126,7 +149,8 @@ class GetContributionsTest extends AnyWordSpec
     val config = GithubApiConfig(
       ghToken = "test_token",
       baseUrl = "",
-      headerRegex = "page=([0-9]+)>; rel=\"last\""
+      headerRegex = "page=([0-9]+)>; rel=\"last\"",
+      cacheTime = 60
     )
 
     val urlService = GetGithubUrls(config)

@@ -22,12 +22,13 @@ class GetContributors @Inject()(ws: WSClient, config: GithubApiConfig, url: GetG
       case Right(repositories) =>
         val toTransform= repositories.map(repository => {
           getNumberOfContributorsPages(organizationName, repository.name)
-              .map(pages => getContributorsFromPages(organizationName, repository.name, pages)).flatten
+            .map(pages => getContributorsFromPages(organizationName, repository.name, pages)).flatten
         })
         transformer(toTransform)
     }
   }
 
+  // TODO @deprecated("use generic version")
   def getNumberOfContributorsPages(organizationName: String, repositoryName: String): Future[Either[GithubAppException, Int]] =
 
     ws.url(url.fetchPaginationValueForRepository(organizationName, repositoryName))
@@ -53,12 +54,12 @@ class GetContributors @Inject()(ws: WSClient, config: GithubApiConfig, url: GetG
     pages match {
       case Left(value) => Future(value.asLeft)
       case Right(pages) =>
-        val toTransform = (1 to pages).toList.map(page => Nested(getContributorsFromPage(organizationName, repositoryName, page)).value)
+        val toTransform = (1 to pages).toList.map(page => getContributorsFromPage(organizationName, repositoryName, page).nested.value)// TODO: urlService.url(organizationName, repositoryName, page)
         transformer(toTransform)
     }
   }
 
-
+  // TODO @deprecated("use generic version")
   def getContributorsFromPage(organizationName: String, repositoryName: String, page: Int): Future[Either[GithubAppException, List[Contributor]]] = {
     import GetContributors._
     ws.url(s"${config.baseUrl}/repos/$organizationName/$repositoryName/contributors?page=$page")
@@ -82,12 +83,11 @@ class GetContributors @Inject()(ws: WSClient, config: GithubApiConfig, url: GetG
       }
       }
   }
-
-  def transformer[T](toTransform: List[Future[Either[GithubAppException, List[T]]]]): Future[Either[GithubAppException, List[T]]] = toTransform.traverse(EitherT(_)).map(_.flatten).value
-
+  def transformer[T](toTransform: List[Future[Either[GithubAppException, List[T]]]]): Future[Either[GithubAppException, List[T]]] = toTransform.flatTraverse(EitherT(_)).value
 }
-object GetContributors {
-  implicit val contributionFormat: Reads[Contributor] = (
+
+object GetContributors{
+  implicit val contributionReads: Reads[Contributor] = (
     (JsPath \ "login").read[String] and
       (JsPath \ "contributions").read[Int]
     ) (Contributor)
