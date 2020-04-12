@@ -12,7 +12,7 @@ Written in Scala with use of Play framework.
 **Important!** service requires an environment variable GH_TOKEN with valid token to github api to run. Example:
 
 ```bash
-export GH_TOKEN="343afcca69d698ee1e181438dd0364c84c8cb379"
+export GH_TOKEN="xxx"
 ```
 env
 ## Running
